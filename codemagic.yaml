@@ -7,7 +7,7 @@ workflows:
           - certificate_credentials # <-- (CERTIFICATE_PRIVATE_KEY)
         vars:
           XCODE_PROJECT: "FishSimulator.xcodeproj"
-          XCODE_SCHEME: "project"
+          XCODE_SCHEME: "FishSimulator"
           BUNDLE_ID: "com.gameverse.alab"
           APP_STORE_APPLE_ID: 6743800390
         xcode: latest
