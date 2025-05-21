@@ -1,196 +1,451 @@
 import SwiftUI
+import SpriteKit
 
-struct Labyrinth: View {
-    var onBack: () -> Void
-    @State private var playerPosition: CGPoint = CGPoint(x: 1, y: 1)
-    @State private var timeRemaining: Int = 60
-    @State private var showWinModal: Bool = false
-    @State private var showLoseModal: Bool = false
-    @AppStorage("coins") private var coins: Int = 0
-    @State private var timer: Timer?
+// Определяем структуру GridPosition, которая конформит Hashable
+struct GridPosition: Hashable {
+    var row: Int
+    var col: Int
+}
 
-    private let gridSize: Int = 10
-    private let cellSize: CGFloat = 20
-    private let exitPosition: CGPoint = CGPoint(x: 8, y: 8)
-    private let walls: Set<CGPoint> = [
-        CGPoint(x: 1, y: 2), CGPoint(x: 2, y: 2), CGPoint(x: 3, y: 2),
-        CGPoint(x: 3, y: 3), CGPoint(x: 3, y: 4), CGPoint(x: 4, y: 4),
-        CGPoint(x: 5, y: 4), CGPoint(x: 5, y: 5), CGPoint(x: 6, y: 5),
-        CGPoint(x: 7, y: 5), CGPoint(x: 7, y: 6), CGPoint(x: 7, y: 7)
-    ]
+class GameSceneNew: SKScene {
+    let cellSize: CGFloat = 30 // Размер ячейки
+    let mazeRows = 10
+    let mazeCols = 10
+    var ball: SKSpriteNode!
+    var maze: [[Int]] = []
+    var ballGridPosition = GridPosition(row: 0, col: 0)
+    var coinNode: SKSpriteNode?
+    var coinGridPosition: GridPosition?
+    var onWin: (() -> Void)? // Closure для SwiftUI
 
-    var body: some View {
-        ZStack {
-            Image("river_day")
-                .resizable()
-                .edgesIgnoringSafeArea(.all)
-            
-            VStack {
-                CustomNavigation(text: "", coins: 0) {
-                    onBack()
-                }
-                Spacer()
+    override func didMove(to view: SKView) {
+        backgroundColor = .clear // Прозрачный фон
+        size = CGSize(width: 300, height: 300) // Фиксированный размер лабиринта
+        maze = generateMaze(rows: mazeRows, cols: mazeCols)
+        buildMaze(from: maze)
+        addBall()
+        addCoin()
+        reset()
+    }
+    
+    func reset() {
+            removeAllChildren() // Удаляем все узлы
+//            mazeWalls.removeAll() // Очищаем стены
+            maze = generateMaze(rows: mazeRows, cols: mazeCols)
+            buildMaze(from: maze)
+            addBall()
+            addCoin()
+        }
+
+    // Генерация лабиринта с гарантией связности всех проходов
+    func generateMaze(rows: Int, cols: Int) -> [[Int]] {
+        var maze = Array(repeating: Array(repeating: 1, count: cols), count: rows)
+        var stack: [GridPosition] = []
+        var visited: Set<GridPosition> = []
+
+        func isValid(_ r: Int, _ c: Int) -> Bool {
+            return r >= 0 && r < rows && c >= 0 && c < cols && !visited.contains(GridPosition(row: r, col: c))
+        }
+
+        func getNeighbors(_ r: Int, _ c: Int) -> [GridPosition] {
+            let directions = [(0, 2), (2, 0), (0, -2), (-2, 0)]
+            return directions.compactMap { (dr, dc) in
+                let nr = r + dr
+                let nc = c + dc
+                return isValid(nr, nc) ? GridPosition(row: nr, col: nc) : nil
             }
-            
-            HStack {
-                Spacer()
-                VStack {
-                    Button("Up") {
-                        movePlayer(dx: 0, dy: -1)
-                    }
-                    .font(.custom("BULGOGI", size: 24))
-                    .padding()
-                    .background(Color.blue)
-                    .foregroundColor(.white)
-                    .cornerRadius(10)
+        }
 
-                    Button("Down") {
-                        movePlayer(dx: 0, dy: 1)
-                    }
-                    .font(.custom("BULGOGI", size: 24))
-                    .padding()
-                    .background(Color.blue)
-                    .foregroundColor(.white)
-                    .cornerRadius(10)
+        var current = GridPosition(row: 0, col: 0)
+        visited.insert(current)
+        stack.append(current)
 
-                    Button("Left") {
-                        movePlayer(dx: -1, dy: 0)
-                    }
-                    .font(.custom("BULGOGI", size: 24))
-                    .padding()
-                    .background(Color.blue)
-                    .foregroundColor(.white)
-                    .cornerRadius(10)
+        while !stack.isEmpty {
+            let pos = current
+            maze[pos.row][pos.col] = 0
 
-                    Button("Right") {
-                        movePlayer(dx: 1, dy: 0)
-                    }
-                    .font(.custom("BULGOGI", size: 24))
-                    .padding()
-                    .background(Color.blue)
-                    .foregroundColor(.white)
-                    .cornerRadius(10)
-                    
-                    Button("Restart") {
-                        resetGame()
-                    }
-                    .font(.custom("BULGOGI", size: 24))
-                    .padding()
-                    .background(Color.red)
-                    .foregroundColor(.white)
-                    .cornerRadius(10)
-                }
-                .padding()
+            let neighbors = getNeighbors(pos.row, pos.col)
+            if !neighbors.isEmpty {
+                let next = neighbors.randomElement()!
+                maze[(pos.row + next.row) / 2][(pos.col + next.col) / 2] = 0
+                visited.insert(next)
+                stack.append(next)
+                current = next
+            } else {
+                current = stack.removeLast()
             }
+        }
 
-            VStack {
-                Text("Find the Exit!")
-                    .font(.custom("BULGOGI", size: 36))
-                    .foregroundStyle(.white)
-                    .padding()
-
-                Text("Time Left: \(timeRemaining)s")
-                    .font(.custom("BULGOGI", size: 24))
-                    .foregroundStyle(.white)
-                    .padding()
-
-                ZStack {
-                    ForEach(0..<gridSize, id: \.self) { row in
-                        ForEach(0..<gridSize, id: \.self) { col in
-                            let position = CGPoint(x: CGFloat(col), y: CGFloat(row))
-                            Rectangle()
-                                .fill(walls.contains(position) ? Color.gray : Color.clear)
-                                .frame(width: cellSize, height: cellSize)
-                                .border(Color.black, width: 1)
-                                .position(x: CGFloat(col) * cellSize + cellSize / 2, y: CGFloat(row) * cellSize + cellSize / 2)
-                        }
+        // Добавляем случайные движения шарика для создания дополнительных проходов
+        for _ in 0..<5 { // Добавляем 5 случайных движений
+            var currentPos = GridPosition(row: 0, col: 0)
+            for _ in 0..<10 { // Максимум 10 шагов
+                let directions = ["up", "down", "left", "right"]
+                let randomDirection = directions.randomElement()!
+                switch randomDirection {
+                case "up":
+                    if currentPos.row > 0 && maze[currentPos.row - 1][currentPos.col] == 1 {
+                        maze[currentPos.row - 1][currentPos.col] = 0
+                        currentPos.row -= 1
                     }
-
-                    Rectangle()
-                        .fill(Color.green)
-                        .frame(width: cellSize, height: cellSize)
-                        .position(x: exitPosition.x * cellSize + cellSize / 2, y: exitPosition.y * cellSize + cellSize / 2)
-
-                    Rectangle()
-                        .fill(Color.blue)
-                        .frame(width: cellSize, height: cellSize)
-                        .position(x: playerPosition.x * cellSize + cellSize / 2, y: playerPosition.y * cellSize + cellSize / 2)
-                }
-                .frame(width: CGFloat(gridSize) * cellSize, height: CGFloat(gridSize) * cellSize)
-                .padding()
-
-                
-
-                
-            }
-
-            // Win Modal
-            if showWinModal {
-                ModalView(
-                    title: "Congratulations!",
-                    message: "You found the exit and earned 40 coins!",
-                    buttonTitle: "Play Again",
-                    buttonColor: .green
-                ) {
-                    coins += 40
-                    resetGame()
-                }
-            }
-
-            // Lose Modal
-            if showLoseModal {
-                ModalView(
-                    title: "Time’s Up!",
-                    message: "You didn’t find the exit in time. Try again!",
-                    buttonTitle: "Try Again",
-                    buttonColor: .red
-                ) {
-                    resetGame()
+                case "down":
+                    if currentPos.row < mazeRows - 1 && maze[currentPos.row + 1][currentPos.col] == 1 {
+                        maze[currentPos.row + 1][currentPos.col] = 0
+                        currentPos.row += 1
+                    }
+                case "left":
+                    if currentPos.col > 0 && maze[currentPos.row][currentPos.col - 1] == 1 {
+                        maze[currentPos.row][currentPos.col - 1] = 0
+                        currentPos.col -= 1
+                    }
+                case "right":
+                    if currentPos.col < mazeCols - 1 && maze[currentPos.row][currentPos.col + 1] == 1 {
+                        maze[currentPos.row][currentPos.col + 1] = 0
+                        currentPos.col += 1
+                    }
+                default: break
                 }
             }
         }
-        .onAppear {
-            startTimer()
+
+        return maze
+    }
+
+    // Построение лабиринта с непрерывными стенами
+    func buildMaze(from maze: [[Int]]) {
+        let wallThickness: CGFloat = 6 // Толщина стен
+        let halfCellSize = cellSize / 2
+
+        // Создаем внешнюю рамку
+        let borderRect = CGRect(x: 0, y: 0, width: cellSize * CGFloat(mazeCols), height: cellSize * CGFloat(mazeRows))
+        let border = SKShapeNode(rect: borderRect)
+        border.position = CGPoint(x: 0, y: 0)
+        border.strokeColor = .white
+        border.lineWidth = 12
+        border.zPosition = 1000 // поверх всего
+        addChild(border)
+
+        // Создаем единый путь для всех внутренних стен
+        let path = CGMutablePath()
+        for i in 0..<mazeRows {
+            for j in 0..<mazeCols {
+                if maze[i][j] == 1 {
+                    let position = gridToPosition(GridPosition(row: i, col: j))
+
+                    // Верхняя граница
+                    if i == 0 || maze[i - 1][j] == 0 {
+                        path.move(to: CGPoint(x: position.x - halfCellSize, y: position.y + halfCellSize))
+                        path.addLine(to: CGPoint(x: position.x + halfCellSize, y: position.y + halfCellSize))
+                    }
+
+                    // Нижняя граница
+                    if i == mazeRows - 1 || maze[i + 1][j] == 0 {
+                        path.move(to: CGPoint(x: position.x - halfCellSize, y: position.y - halfCellSize))
+                        path.addLine(to: CGPoint(x: position.x + halfCellSize, y: position.y - halfCellSize))
+                    }
+
+                    // Левая граница
+                    if j == 0 || maze[i][j - 1] == 0 {
+                        path.move(to: CGPoint(x: position.x - halfCellSize, y: position.y + halfCellSize))
+                        path.addLine(to: CGPoint(x: position.x - halfCellSize, y: position.y - halfCellSize))
+                    }
+
+                    // Правая граница
+                    if j == mazeCols - 1 || maze[i][j + 1] == 0 {
+                        path.move(to: CGPoint(x: position.x + halfCellSize, y: position.y + halfCellSize))
+                        path.addLine(to: CGPoint(x: position.x + halfCellSize, y: position.y - halfCellSize))
+                    }
+                }
+            }
+        }
+
+        // Создаем единый объект SKShapeNode для всех стен
+        let walls = SKShapeNode(path: path)
+        walls.strokeColor = .white
+        walls.lineWidth = wallThickness
+        walls.zPosition = 300
+        addChild(walls)
+    }
+
+    func addBall() {
+        ballGridPosition = GridPosition(row: 0, col: 0)
+        if let ballTexture = SKTexture(imageNamed: "ball") as SKTexture? {
+            ball = SKSpriteNode(texture: ballTexture)
+            ball.size = CGSize(width: cellSize * 0.8, height: cellSize * 0.8)
+        } else {
+            print("Ошибка: Не удалось загрузить изображение 'ball'")
+            return
+        }
+        ball.position = gridToPosition(ballGridPosition)
+        addChild(ball)
+    }
+
+    func moveBall(direction: String) {
+        var currentPos = ballGridPosition
+        switch direction {
+        case "up": currentPos.row -= 1
+        case "down": currentPos.row += 1
+        case "left": currentPos.col -= 1
+        case "right": currentPos.col += 1
+        default: break
+        }
+        if currentPos.row >= 0 && currentPos.row < mazeRows &&
+           currentPos.col >= 0 && currentPos.col < mazeCols &&
+           maze[currentPos.row][currentPos.col] == 0 {
+            ballGridPosition = currentPos
+            let newPos = gridToPosition(ballGridPosition)
+            ball.run(SKAction.move(to: newPos, duration: 0.1))
+            if let coinPos = coinGridPosition, coinPos == ballGridPosition {
+                coinNode?.removeFromParent()
+                coinNode = nil
+                onWin?()
+            }
         }
     }
 
-    private func movePlayer(dx: Int, dy: Int) {
-        let newPosition = CGPoint(x: playerPosition.x + CGFloat(dx), y: playerPosition.y + CGFloat(dy))
+    func addCoin() {
+        var freeCells: [GridPosition] = []
+        for i in 0..<mazeRows {
+            for j in 0..<mazeCols {
+                if maze[i][j] == 0 && !(i == ballGridPosition.row && j == ballGridPosition.col) {
+                    freeCells.append(GridPosition(row: i, col: j))
+                }
+            }
+        }
+        guard !freeCells.isEmpty else { return }
+        let idx = Int.random(in: 0..<freeCells.count)
+        let pos = freeCells[idx]
+        coinGridPosition = pos
+        let coin = SKSpriteNode(texture: SKTexture(imageNamed: "wincup"))
+        coin.size = CGSize(width: cellSize * 0.9, height: cellSize * 0.9)
+        coin.position = gridToPosition(pos)
+        coin.zPosition = 500
+        addChild(coin)
+        coinNode = coin
+    }
 
-        if newPosition.x >= 0, newPosition.x < CGFloat(gridSize),
-           newPosition.y >= 0, newPosition.y < CGFloat(gridSize),
-           !walls.contains(newPosition) {
-            playerPosition = newPosition
+    func gridToPosition(_ pos: GridPosition) -> CGPoint {
+        CGPoint(
+            x: CGFloat(pos.col) * cellSize + cellSize / 2,
+            y: CGFloat(mazeRows - 1 - pos.row) * cellSize + cellSize / 2
+        )
+    }
+}
 
-            if playerPosition == exitPosition {
+struct SpriteKitView: UIViewRepresentable {
+    @Binding var scene: GameSceneNew
+    func makeUIView(context: Context) -> SKView {
+        let skView = SKView()
+        skView.backgroundColor = .clear
+        scene.scaleMode = .aspectFit
+        scene.size = skView.bounds.size
+        skView.presentScene(scene)
+        return skView
+    }
+    func updateUIView(_ uiView: SKView, context: Context) {
+        if uiView.scene !== scene {
+            uiView.presentScene(scene)
+        }
+    }
+}
+
+struct Labyrinth: View {
+    var onBack: () -> Void
+    @State private var scene = GameSceneNew()
+    @State private var showWinView1 = false
+    @State private var showLoseModal = false
+    @State private var timeLeft = 60
+    @State private var timer: Timer? = nil
+    @Environment(\.dismiss) private var dismiss
+    var isPad = UIDevice.current.userInterfaceIdiom == .pad
+    var body: some View {
+        GeometryReader { geo in
+            ZStack {
+                
+                
+                
+                VStack {
+                     
+                     Image(.miniGamePlate)
+                         .resizable()
+                         .scaledToFit()
+                         .frame(width: isPad ? 1000 : 700)
+                 }
+            
+                HStack(spacing: -80) {
+                    Spacer()
+                    SpriteKitView(scene: $scene)
+                        .frame(width: 250, height: 250)
+                        .background(Color.clear)
+                    
+                        Spacer()
+                        Image("plate")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 100, height: 100)
+                            .overlay(
+                                VStack(spacing: 5) { // Vertical spacing between rows of buttons
+                                    // Up button row
+                                    HStack {
+                                        Spacer()
+                                        Button(action: { scene.moveBall(direction: "up") }) {
+                                            Image(.up)
+                                                .resizable()
+                                                .scaledToFit()
+                                                .frame(width: 40, height: 40) // Slightly smaller for better fit
+                                        }
+                                        Spacer()
+                                    }
+
+                                    // Left, Again, Right buttons row
+                                    HStack(spacing: 10) { // Horizontal spacing between left/again/right
+                                        Button(action: { scene.moveBall(direction: "left") }) {
+                                            Image(.left)
+                                                .resizable()
+                                                .scaledToFit()
+                                                .frame(width: 40, height: 40)
+                                        }
+
+                                        // Assuming .againBtn is a button to restart or similar
+                                        Button(action: { restartGame() }) { // Action for again button
+                                            Image(.againBtn)
+                                                .resizable()
+                                                .scaledToFit()
+                                                .frame(width: 40, height: 40)
+                                        }
+
+                                        Button(action: { scene.moveBall(direction: "right") }) {
+                                            Image(.right)
+                                                .resizable()
+                                                .scaledToFit()
+                                                .frame(width: 40, height: 40)
+                                        }
+                                    }
+
+                                    // Down button row
+                                    HStack {
+                                        Spacer()
+                                        Button(action: { scene.moveBall(direction: "down") }) {
+                                            Image(.down)
+                                                .resizable()
+                                                .scaledToFit()
+                                                .frame(width: 40, height: 40)
+                                        }
+                                        Spacer()
+                                    }
+                                }
+                                .padding(.horizontal, 15) // Add some horizontal padding to the button block
+                                .padding(.vertical, 10) // Add some vertical padding
+                                
+                            )
+
+                    Spacer()
+                }
+                
+
+                
+                if showWinView1 {
+//                    Color.black.opacity(0.8)
+//                        .edgesIgnoringSafeArea(.all)
+//                    WinView1()
+//                        .frame(width: geo.size.width * 0.9, height: geo.size.height * 0.8)
+//                        .transition(.opacity)
+//                        .onTapGesture {
+//                            dismiss()
+//                        }
+                    LabyrinthWinView(onBack: onBack)
+                }
+                if showLoseModal {
+//                    LoseModalView(onTryAgain: {
+//                        restartGame()
+//                    })
+//                    .transition(.opacity)
+//                    .zIndex(2000)
+                    
+                }
+                
+                VStack {
+                    CustomNavigation(text: "", coins: 0) {
+                        onBack()
+                    }
+                    .padding()
+                    Spacer()
+                }
+            }
+            .navigationBarHidden(true)
+            .frame(width: geo.size.width, height: geo.size.height)
+            .background(
+                Image(.backgroundminiGames)
+                    .resizable()
+                    .scaledToFill()
+                    .edgesIgnoringSafeArea(.all)
+                    .scaleEffect(1.1)
+            )
+            .onAppear {
+                scene.onWin = {
+                    timer?.invalidate()
+                    withAnimation {
+                        showWinView1 = true
+                    }
+                }
+                startTimer()
+            }
+            .onDisappear {
                 timer?.invalidate()
-                showWinModal = true
             }
         }
     }
 
     private func startTimer() {
         timer?.invalidate()
-        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
-            if timeRemaining > 0 {
-                timeRemaining -= 1
+        timeLeft = 60
+        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { t in
+            if showWinView1 || showLoseModal {
+                t.invalidate()
+                return
+            }
+            if timeLeft > 0 {
+                timeLeft -= 1
             } else {
-                timer?.invalidate()
-                showLoseModal = true
+                t.invalidate()
+                withAnimation {
+                    showLoseModal = true
+                }
             }
         }
     }
 
-    private func resetGame() {
-        playerPosition = CGPoint(x: 1, y: 1)
-        timeRemaining = 60
-        showWinModal = false
+    private func restartGame() {
+        showWinView1 = false
         showLoseModal = false
+        scene = GameSceneNew()
         startTimer()
     }
 }
 
-
+struct LabyrinthWinView: View {
+    @AppStorage("coinscore") var coinscore: Int = 10
+    @AppStorage("stars") private var stars: Int = 0
+    var onBack: () -> Void
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack {
+                Image(.youWinView1)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: geometry.size.width / 2, height: geometry.size.height / 2)
+                    .scaleEffect(1.62)
+                    
+                    .onTapGesture {
+                        coinscore += 100
+                        stars += 2
+                        onBack()
+                    }
+            }
+            .frame(width: geometry.size.width, height: geometry.size.height)
+        }
+    }
+}
 
 #Preview {
     Labyrinth {

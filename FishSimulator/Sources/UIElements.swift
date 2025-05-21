@@ -64,6 +64,19 @@ struct CoinFullItem: View {
     }
 }
 
+struct StarFullItem: View {
+    var text: String
+    
+    var body: some View {
+        ZStack {
+            Assets.UI.starFull
+                .frame(width: 180, height: 44)
+            StrokedText(text: text, size: 20)
+                .offset(x: 18, y: 2)
+        }
+    }
+}
+
 struct CustomNavigation: View {
     var text: String
     var coins: Int

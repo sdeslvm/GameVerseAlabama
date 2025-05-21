@@ -9,9 +9,16 @@ struct BaseMenu: View {
     @State var isShowingGameGuessNumber: Bool = false
     @State var isShowingGameLabyrinth: Bool = false
     @State var isShowingGameRemember: Bool = false
+    @State var isShowingAchive: Bool = false
+    @State var isShowingMiniGamesView: Bool = false
+    @State var isShowingDailyBonus: Bool = false
+    @State var isShowingWinsGrades: Bool = false
+    
+    
 
     @AppStorage("coins") private var coins: Int = 0
-    @AppStorage("lastDailyBonusDate") private var lastDailyBonusDate: String = ""
+    @AppStorage("stars") private var stars: Int = 0
+//    @AppStorage("lastDailyBonusDate") private var lastDailyBonusDate: String = ""
 
     @State private var showDailyBonusModal: Bool = false
     @State private var dailyBonusClaimedToday: Bool = false
@@ -20,71 +27,113 @@ struct BaseMenu: View {
         ZStack {
             CurrentBackground()
             CurrentPlayer()
+            
+            HStack {
+                Spacer()
+                VStack {
+                    
+                    ButtonTemplateSmall(image: "rateBtn", action: {
+                                            withAnimation(.easeInOut) {
+                        
+                                                isShowingAchive = true
+                                            }
+                                        })
+                        .padding(.top, 20)
+                    ButtonTemplateSmall(image: "cupBtn", action: {
+                        withAnimation(.easeInOut) {
+                            isShowingDailyBonus = true
+                        }
+                    })
+                    .padding()
+                    Spacer()
+                    ButtonTemplateSmall(image: "miniGamesBtn", action: {
+                        withAnimation(.easeInOut) {
+                            isShowingMiniGamesView = true
+                        }
+                    })
+                        .padding()
+                        
+
+                }
+            }
 
             VStack {
-                CoinFullItem(text: "\(coins)")
+                HStack {
+                    CoinFullItem(text: "\(coins)")
+                    StarFullItem(text: "\(stars)")
+                }
                 Spacer()
 
                 // DAILY BONUS BUTTON
-                Button(action: {
-                    if !dailyBonusClaimedToday {
-                        coins += 50
-                        lastDailyBonusDate = currentDateString()
-                        dailyBonusClaimedToday = true
-                        showDailyBonusModal = true
-                    }
-                }) {
-                    Text(dailyBonusClaimedToday ? "Daily Bonus Claimed" : "Daily Bonus")
-                        .font(.headline)
-                        .padding()
-                        .background(dailyBonusClaimedToday ? Color.gray : Color.orange)
-                        .foregroundColor(.white)
-                        .cornerRadius(10)
-                }
-                .disabled(dailyBonusClaimedToday)
-                .padding(.bottom, 16)
+//                Button(action: {
+//                    if !dailyBonusClaimedToday {
+//                        coins += 50
+//                        lastDailyBonusDate = currentDateString()
+//                        dailyBonusClaimedToday = true
+//                        showDailyBonusModal = true
+//                    }
+//                }) {
+//                    Text(dailyBonusClaimedToday ? "Daily Bonus Claimed" : "Daily Bonus")
+//                        .font(.headline)
+//                        .padding()
+//                        .background(dailyBonusClaimedToday ? Color.gray : Color.orange)
+//                        .foregroundColor(.white)
+//                        .cornerRadius(10)
+//                }
+//                .disabled(dailyBonusClaimedToday)
+//                .padding(.bottom, 16)
 
-                WoodenButton(text: "Play") {
-                    withAnimation(.easeInOut) {
-                        isShowingGame = true
-                    }
-                }
-                .frame(width: 256, height: 64)
-                .padding(.bottom, 24)
-
-                HStack {
-                    WoodenButton(text: "Find") {
+                HStack(spacing: 32) {
+                    WoodenButton(text: "Play") {
                         withAnimation(.easeInOut) {
-                            isShowingGameFindPair = true
+                            isShowingGame = true
                         }
                     }
-                    .frame(width: 130, height: 64)
+                    .frame(width: 256, height: 64)
                     .padding(.bottom, 24)
-
-                    WoodenButton(text: "Labyrinth") {
+                    
+                    WoodenButton(text: "Achive") {
                         withAnimation(.easeInOut) {
-                            isShowingGameLabyrinth = true
+                            isShowingWinsGrades = true
                         }
                     }
-                    .frame(width: 180, height: 64)
-                    .padding(.bottom, 24)
-
-                    WoodenButton(text: "Guess") {
-                        withAnimation(.easeInOut) {
-                            isShowingGameGuessNumber = true
-                        }
-                    }
-                    .frame(width: 140, height: 64)
-                    .padding(.bottom, 24)
-
-                    WoodenButton(text: "Remember") {
-                        withAnimation(.easeInOut) {
-                            isShowingGameRemember = true
-                        }
-                    }
-                    .frame(width: 185, height: 64)
+                    .frame(width: 256, height: 64)
                     .padding(.bottom, 24)
                 }
+
+//                HStack {
+//                    WoodenButton(text: "Find") {
+//                        withAnimation(.easeInOut) {
+//                            isShowingGameFindPair = true
+//                        }
+//                    }
+//                    .frame(width: 130, height: 64)
+//                    .padding(.bottom, 24)
+//
+//                    WoodenButton(text: "Labyrinth") {
+//                        withAnimation(.easeInOut) {
+//                            isShowingGameLabyrinth = true
+//                        }
+//                    }
+//                    .frame(width: 180, height: 64)
+//                    .padding(.bottom, 24)
+//
+//                    WoodenButton(text: "Guess") {
+//                        withAnimation(.easeInOut) {
+//                            isShowingGameGuessNumber = true
+//                        }
+//                    }
+//                    .frame(width: 140, height: 64)
+//                    .padding(.bottom, 24)
+//
+//                    WoodenButton(text: "Remember") {
+//                        withAnimation(.easeInOut) {
+//                            isShowingGameRemember = true
+//                        }
+//                    }
+//                    .frame(width: 185, height: 64)
+//                    .padding(.bottom, 24)
+//                }
 
                 HStack(spacing: 32) {
                     WoodenButton(text: "Shop") {
@@ -118,6 +167,8 @@ struct BaseMenu: View {
                     }
                 }.transition(.opacity)
             }
+            
+
 
             // DAILY BONUS MODAL
             if showDailyBonusModal {
@@ -152,13 +203,42 @@ struct BaseMenu: View {
             }
         }
         .onAppear {
-            dailyBonusClaimedToday = hasClaimedBonusToday()
+//            dailyBonusClaimedToday = hasClaimedBonusToday()
         }
         .fullScreenCover(isPresented: $isShowingGame) {
             GameViewFisher() {
                 isShowingGame = false
             }
         }
+        
+        .fullScreenCover(isPresented: $isShowingAchive) {
+            AchiveView() {
+                isShowingAchive = false
+            }
+        }
+        
+        // mini games
+        .fullScreenCover(isPresented: $isShowingMiniGamesView) {
+            MiniGamesView() {
+                isShowingMiniGamesView = false
+            }
+        }
+        
+        // DailyBonus
+        .fullScreenCover(isPresented: $isShowingDailyBonus) {
+            DailyBonus() {
+                isShowingDailyBonus = false
+            }
+        }
+        
+        // isShowingWinsGrades
+        
+        .fullScreenCover(isPresented: $isShowingWinsGrades) {
+            WinsGradesView() {
+                isShowingWinsGrades = false
+            }
+        }
+        
         .fullScreenCover(isPresented: $isShowingGameFindPair) {
             FindPair() {
                 isShowingGameFindPair = false
@@ -187,8 +267,30 @@ struct BaseMenu: View {
         return formatter.string(from: Date())
     }
 
-    private func hasClaimedBonusToday() -> Bool {
-        currentDateString() == lastDailyBonusDate
+//    private func hasClaimedBonusToday() -> Bool {
+//        currentDateString() == lastDailyBonusDate
+//    }
+}
+
+
+struct ButtonTemplateSmall: View {
+    var image: String
+    var action: () -> Void
+
+    var body: some View {
+        ZStack {
+            Image(image)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 62, height: 62)
+                .cornerRadius(10)
+                .shadow(radius: 10)
+        }
+        .onTapGesture {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                action()
+            }
+        }
     }
 }
 

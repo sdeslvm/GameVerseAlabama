@@ -1,9 +1,4 @@
-//
-//  FishSimulatorApp.swift
-//  FishSimulator
-//
-//  Created by Pavel Ivanov on 25.03.2025.
-//
+
 
 import SwiftUI
 

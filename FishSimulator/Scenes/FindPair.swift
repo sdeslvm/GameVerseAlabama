@@ -23,17 +23,37 @@ struct CardView: View {
     let card: Card
     let isFlipped: Bool
 
+    // Mapping from old emoji content to new asset names
+    private let assetMapping: [String: String] = [
+        "🐟": "card1",
+        "🐠": "card2",
+        "🐡": "card3",
+        "🐬": "card4",
+        "🐳": "card5",
+        "🦈": "card6"
+    ]
+
     var body: some View {
         ZStack {
             if isFlipped {
-                Text(card.content)
-                    .font(.largeTitle)
-                    .frame(width: 60, height: 90)
-                    .background(Color.white)
-                    .cornerRadius(8)
+                if let assetName = assetMapping[card.content] {
+                    Image(assetName)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 60, height: 90)
+                        .cornerRadius(8)
+                } else {
+                    // Fallback or error handling if content doesn't map to an asset
+                    Text(card.content)
+                        .font(.largeTitle)
+                        .frame(width: 60, height: 90)
+                        .background(Color.white)
+                        .cornerRadius(8)
+                }
             } else {
-                Rectangle()
-                    .fill(Color.blue)
+                Image("backCard")
+                    .resizable()
+                    .scaledToFit()
                     .frame(width: 60, height: 90)
                     .cornerRadius(8)
             }
@@ -93,68 +113,142 @@ struct FindPair: View {
     @State private var showLoseModal = false
     @AppStorage("coins") private var coins: Int = 0
     @State private var timer: Timer?
+    @State private var incorrectTries: Int = 0
+
+    // State variables for controlling card spacing
+    @State private var horizontalCardSpacing: CGFloat = 10 // Adjust as needed
+    @State private var verticalCardSpacing: CGFloat = -30 // Adjust as needed
 
     var body: some View {
-        ZStack {
-            Image("river_day")
-                .resizable()
-                .edgesIgnoringSafeArea(.all)
-            
-            VStack {
-                CustomNavigation(text: "", coins: 0) {
-                    onBack()
-                }
-                Spacer()
-            }
+        GeometryReader { geometry in
+            ZStack {
+                // Фон теперь применен как background к ZStack
 
-            VStack {
-                Text("Find the Pair!")
-                    .font(.custom("BULGOGI", size: 36))
-                    .foregroundStyle(.white)
+                // Возможно, этот VStack с Spacer и miniGamePlate все еще влияет на макет
+                
+                VStack {
+                     
+                     Image(.miniGamePlate)
+                         .resizable()
+                         .scaledToFit()
+                         .frame(width: 700)
+                 }
+                 
+              
+                // Объединяем навигацию и игровой контент в один VStack для лучшего контроля вертикального макета
+                VStack {
+                    CustomNavigation(text: "", coins: 0) {
+                        onBack()
+                    }
                     .padding()
+                    Spacer()
+                }
+                
+                
+                
+                VStack {
+                    Text("Find a match")
+                        .font(.custom("BULGOGI", size: 36))
+                        .foregroundStyle(.white)
 
-                Text("Time Left: \(timeRemaining)s")
-                    .font(.custom("BULGOGI", size: 24))
-                    .foregroundStyle(.white)
+                    HStack {
+                        Text("Tries: \(5 - incorrectTries)")
+                            .font(.custom("BULGOGI", size: 24))
+                            .foregroundStyle(.white)
+                        Text("Time: \(timeRemaining)s")
+                            .font(.custom("BULGOGI", size: 24))
+                            .foregroundStyle(.white)
+                    }
+                    Spacer()
+                }
+                .padding(.top, 70)
 
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6)) {
-                    ForEach(cards.indices, id: \.self) { index in
-                        CardView(
-                            card: cards[index],
-                            isFlipped: flippedIndices.contains(index) || matchedCards.contains(cards[index].id)
-                        )
-                        .onTapGesture {
-                            flipCard(at: index)
+                // VStack, содержащий заголовок, таймер и LazyVGrid.
+                // Устанавливаем spacing 0, чтобы убрать стандартные отступы между ними.
+                
+
+                    // Используем VStack с HStacks для явного контроля вертикального и горизонтального отступа
+                    VStack(spacing: verticalCardSpacing) { // spacing для вертикального расстояния между строками
+                        HStack(spacing: horizontalCardSpacing) { // spacing для горизонтального расстояния в первой строке
+                            ForEach(0..<4) { index in
+                                CardView(
+                                    card: cards[index],
+                                    isFlipped: flippedIndices.contains(index) || matchedCards.contains(cards[index].id)
+                                )
+                                .onTapGesture {
+                                    flipCard(at: index)
+                                }
+                            }
+                        }
+
+                        HStack(spacing: horizontalCardSpacing) { // spacing для горизонтального расстояния во второй строке
+                            ForEach(4..<8) { index in
+                                CardView(
+                                    card: cards[index],
+                                    isFlipped: flippedIndices.contains(index) || matchedCards.contains(cards[index].id)
+                                )
+                                .onTapGesture {
+                                    flipCard(at: index)
+                                }
+                            }
+                        }
+
+                        HStack(spacing: horizontalCardSpacing) { // spacing для горизонтального расстояния в третьей строке
+                            ForEach(8..<12) { index in
+                                CardView(
+                                    card: cards[index],
+                                    isFlipped: flippedIndices.contains(index) || matchedCards.contains(cards[index].id) // Исправлено: был card.id, нужно card.content
+                                )
+                                .onTapGesture {
+                                    flipCard(at: index)
+                                }
+                            }
                         }
                     }
-                }
-                .padding()
-            }
+                    .padding(.top, 50)
+                    
+                
 
-            if showWinModal {
-                ModalView(
-                    title: "Congratulations!",
-                    message: "You matched all pairs and earned 30 coins!",
-                    buttonTitle: "Play Again",
-                    buttonColor: .green
-                ) {
-                    coins += 30
-                    resetGame()
-                }
-            }
+                // Применяем frame и alignment к этому VStack, чтобы лучше контролировать вертикальное пространство
+//                .frame(maxHeight: .infinity, alignment: .top) // Позволяет занимать всю доступную высоту и выравнивать контент вверх
 
-            if showLoseModal {
-                ModalView(
-                    title: "Time’s Up!",
-                    message: "You didn’t finish in time. Try again!",
-                    buttonTitle: "Try Again",
-                    buttonColor: .red
-                ) {
-                    resetGame()
+//                Spacer() // Еще один Spacer внизу, чтобы вытолкнуть контент вверх при необходимости
+
+                if showWinModal {
+//                    ModalView(
+//                        title: "Congratulations!",
+//                        message: "You matched all pairs and earned 30 coins!",
+//                        buttonTitle: "Play Again",
+//                        buttonColor: .green
+//                    ) {
+//                        coins += 30
+//                        resetGame()
+//                    }
+                    FindWinView(onBack: onBack)
+                }
+
+                
+                if showLoseModal {
+                    ModalView(
+                        title: "Time's Up!",
+                        message: "You didn't finish in time. Try again!",
+                        buttonTitle: "Try Again",
+                        buttonColor: .red
+                    ) {
+                        resetGame()
+                    }
                 }
             }
+            .frame(width: geometry.size.width, height: geometry.size.height)
+            .background(
+                Image(.backgroundminiGames)
+                    .resizable()
+                    .scaledToFill()
+                    .edgesIgnoringSafeArea(.all)
+                    .scaleEffect(1.1)
+            )
+            .onAppear(perform: startTimer)
         }
-        .onAppear(perform: startTimer)
     }
 
     private func flipCard(at index: Int) {
@@ -175,6 +269,13 @@ struct FindPair: View {
                 if matchedCards.count == cards.count {
                     timer?.invalidate()
                     showWinModal = true
+                }
+            } else {
+                // Mismatch: increment incorrect tries and check for game over
+                incorrectTries += 1
+                if incorrectTries >= 5 {
+                    timer?.invalidate()
+                    showLoseModal = true
                 }
             }
 
@@ -205,7 +306,32 @@ struct FindPair: View {
         timeRemaining = 45
         showWinModal = false
         showLoseModal = false
+        incorrectTries = 0 // Reset incorrect tries
         startTimer()
+    }
+}
+
+struct FindWinView: View {
+    @AppStorage("coins") var coinscore: Int = 0
+    @AppStorage("stars") private var stars: Int = 0
+    var onBack: () -> Void
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack {
+                Image(.youWinView3)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: geometry.size.width / 2, height: geometry.size.height / 2)
+                    .scaleEffect(1.62)
+                    
+                    .onTapGesture {
+                        coinscore += 20
+                        stars += 2
+                        onBack()
+                    }
+            }
+            .frame(width: geometry.size.width, height: geometry.size.height)
+        }
     }
 }
 

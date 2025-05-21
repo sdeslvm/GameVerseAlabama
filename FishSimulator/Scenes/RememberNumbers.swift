@@ -11,87 +11,107 @@ struct RememberNumbers: View {
     @State private var showLoseModal: Bool = false
     @AppStorage("coins") private var coins: Int = 0
 
-    private let images = ["🐟", "🐠", "🐡", "🐬", "🐳", "🦈"]
+    // State variables for controlling card spacing
+    @State private var horizontalCardSpacing: CGFloat = 10 // Adjust as needed
+    @State private var verticalCardSpacing: CGFloat = 10 // Adjust as needed
+
+    private let images = ["card11", "card12", "card13", "card14", "card15", "card16", "card17", "card18"]
 
     var body: some View {
-        ZStack {
-            Image("river_day")
-                .resizable()
-                .edgesIgnoringSafeArea(.all)
-            
-            VStack {
-                CustomNavigation(text: "", coins: 0) {
-                    onBack()
-                }
-                Spacer()
-            }
+        GeometryReader { geo in
+            ZStack {
+                Image(.backgroundminiGames)
+                    .resizable()
+                    .edgesIgnoringSafeArea(.all)
+                
+                
+                
+                VStack {
+                     
+                     Image(.miniGamePlate)
+                         .resizable()
+                         .scaledToFit()
+                         .frame(width: 700)
+                 }
 
-            VStack {
-                Text("Remember the Sequence!")
-                    .font(.custom("BULGOGI", size: 36))
-                    .foregroundStyle(.white)
-                    .padding()
+                VStack {
+                    Text("Repeat the sequence")
+                        .font(.custom("BULGOGI", size: 36))
+                        .foregroundStyle(.white)
+    //                    .padding()
 
-                Text("Round: \(currentStep)/6")
-                    .font(.custom("BULGOGI", size: 24))
-                    .foregroundStyle(.white)
-                    .padding()
+    //                Text("Round: \(currentStep)/6")
+    //                    .font(.custom("BULGOGI", size: 24))
+    //                    .foregroundStyle(.white)
+    //                    .padding()
 
-                if isShowingSequence {
-                    Text(sequence[currentSequenceIndex])
-                        .font(.largeTitle)
-                        .padding()
-                        .frame(width: 100, height: 100)
-                        .background(Color.white)
-                        .cornerRadius(12)
-                        .shadow(radius: 5)
-                } else {
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3)) {
-                        ForEach(images, id: \.self) { image in
-                            Button(action: {
-                                handleUserInput(image)
-                            }) {
-                                Text(image)
-                                    .font(.largeTitle)
-                                    .frame(width: 80, height: 80)
-                                    .background(Color.blue)
-                                    .foregroundColor(.white)
-                                    .cornerRadius(12)
-                                    .shadow(radius: 5)
+                    if isShowingSequence {
+                        Image(sequence[currentSequenceIndex])
+                            .padding()
+                            .scaledToFit()
+                            .frame(width: 80, height: 80)
+    //                        .background(Color.blue)
+                            .cornerRadius(12)
+                            .shadow(radius: 5)
+                    } else {
+                        VStack(spacing: verticalCardSpacing) { // Vertical spacing between rows
+                            HStack(spacing: horizontalCardSpacing) { // Horizontal spacing in the first row
+                                ForEach(0..<4) { index in
+                                    Button(action: {
+                                        handleUserInput(images[index])
+                                    }) {
+                                        Image(images[index])
+                                            .resizable()
+                                            .scaledToFit()
+                                            .frame(width: 80, height: 80)
+    //                                        .background(Color.blue)
+                                            .cornerRadius(12)
+                                            .shadow(radius: 5)
+                                    }
+                                }
+                            }
+
+                            HStack(spacing: horizontalCardSpacing) { // Horizontal spacing in the second row
+                                ForEach(4..<8) { index in
+                                    Button(action: {
+                                        handleUserInput(images[index])
+                                    }) {
+                                        Image(images[index])
+                                            .resizable()
+                                            .scaledToFit()
+                                            .frame(width: 80, height: 80)
+    //                                        .background(Color.blue)
+                                            .cornerRadius(12)
+                                            .shadow(radius: 5)
+                                    }
+                                }
                             }
                         }
                     }
+                }
+
+                // Win Modal
+                if showWinModal {
+                    RememberWinView(onBack: onBack)
+                }
+
+                // Lose Modal
+                if showLoseModal {
+                    RememberLoseView(onReset: resetGame)
+                }
+                
+                VStack {
+                    CustomNavigation(text: "", coins: 0) {
+                        onBack()
+                    }
                     .padding()
+                    Spacer()
                 }
             }
-
-            // Win Modal
-            if showWinModal {
-                ModalView(
-                    title: "Congratulations!",
-                    message: "You completed all rounds and earned 30 coins!",
-                    buttonTitle: "Play Again",
-                    buttonColor: .green
-                ) {
-                    coins += 30
-                    resetGame()
-                }
+            .frame(width: geo.size.width, height: geo.size.height)
+            .onAppear {
+                startNewRound()
             }
-
-            // Lose Modal
-            if showLoseModal {
-                ModalView(
-                    title: "Game Over!",
-                    message: "You made a mistake. Try again!",
-                    buttonTitle: "Try Again",
-                    buttonColor: .red
-                ) {
-                    resetGame()
-                }
-            }
-        }
-        .onAppear {
-            startNewRound()
         }
     }
 
@@ -143,6 +163,56 @@ struct RememberNumbers: View {
         showWinModal = false
         showLoseModal = false
         startNewRound()
+    }
+}
+
+
+struct RememberWinView: View {
+    @AppStorage("coins") private var coins: Int = 0
+    @AppStorage("stars") private var stars: Int = 0
+    var onBack: () -> Void
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack {
+                Image(.youWinView)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: geometry.size.width / 2, height: geometry.size.height / 2)
+                    .scaleEffect(1.22)
+                    
+                    .onTapGesture {
+                        coins += 20
+                        stars += 3
+                        onBack()
+                    }
+            }
+            .frame(width: geometry.size.width, height: geometry.size.height)
+        }
+    }
+}
+
+
+struct RememberLoseView: View {
+    
+    var onReset: () -> Void
+
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack {
+                HStack {
+                    Image(.youLoseView)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: geometry.size.width / 2, height: geometry.size.height / 2)
+                        .scaleEffect(1.22)
+                        .onTapGesture {
+                            onReset()
+    //                        NavGuard.shared.currentScreen = .MENU
+                        }
+                }
+            }
+            .frame(width: geometry.size.width, height: geometry.size.height)
+        }
     }
 }
 

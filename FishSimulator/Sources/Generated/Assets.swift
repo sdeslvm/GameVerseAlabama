@@ -157,6 +157,9 @@ enum Assets {
         static let coinsFull: Image = {
             Image("coinsFull").resizable()
         }()
+        static let starFull: Image = {
+            Image("coinsTemplate").resizable()
+        }()
         static let depthCountFrame: Image = {
             Image("depthCountFrame").resizable()
         }()

@@ -1,5 +1,3 @@
-
-
 import SwiftUI
 
 struct GuessNumberScreen: View {
@@ -10,9 +8,13 @@ struct GuessNumberScreen: View {
     @State private var isGameWon: Bool = false
     @AppStorage("coins") private var coins: Int = 0
 
+    // State variables for feedback modals
+    @State private var showSmallerModal: Bool = false
+    @State private var showBiggerModal: Bool = false
+
     var body: some View {
         ZStack {
-            Image("river_day")
+            Image(.backgroundminiGames)
                 .resizable()
                 .edgesIgnoringSafeArea(.all) // Make the background cover the entire screen
             
@@ -22,6 +24,14 @@ struct GuessNumberScreen: View {
                 }
                 Spacer()
             }
+            
+            VStack {
+                 
+                 Image(.miniGamePlate)
+                     .resizable()
+                     .scaledToFit()
+                     .frame(width: 700)
+             }
 
             VStack {
                 Text("Guess the Number!")
@@ -31,22 +41,26 @@ struct GuessNumberScreen: View {
                     .padding()
 
                 TextField("Enter your guess", value: $guessedNumber, formatter: NumberFormatter())
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                    
-                    .keyboardType(.numberPad)
-                    .padding()
+                    .font(.custom("BULGOGI", size: 24)) // Set font size
+                    .foregroundStyle(.white) // Set text color to white
+                    .padding(.horizontal, 55) // Adjust horizontal padding to center text
+                    .frame(width: 160, height: 50) // Set a fixed height matching the image
+                    .keyboardType(.numberPad) // Keep number pad keyboard
+                    .background(
+                        Image(.textField)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(height: 50) // Ensure background image fits the height
+                    )
+                    .padding(.horizontal) // Keep horizontal padding around the input field block
 
                 Button(action: checkGuess) {
-                    Image("woodenButton")
+                    Image(.guessBtn)
                         .resizable()
-                        .frame(width: 200, height: 50)
-                        .overlay(Text("Check").foregroundColor(.white))
+                        .scaledToFit()
+                        .frame(width: 200, height: 50) // Set frame matching original button size
                 }
                 .padding()
-
-                Text(feedback)
-                    .font(.custom("BULGOGI", size: 24)) // Use custom font
-                    .padding()
 
                 if isGameWon {
                     Button(action: {
@@ -59,27 +73,27 @@ struct GuessNumberScreen: View {
                             .overlay(Text("Claim Reward").foregroundColor(.white))
                     }
                     .padding()
-                } else {
-                    Button(action: resetGame) {
-                        Image("woodenButton")
-                            .resizable()
-                            .frame(width: 200, height: 50)
-                            .overlay(Text("Try Again").foregroundColor(.white))
-                    }
-                    .padding()
                 }
             }
             .padding()
+
+            // Feedback Modals
+            if showSmallerModal {
+                GuessFeedbackModal(imageName: "smallerNumber", onDismiss: { showSmallerModal = false; resetGame() })
+            }
+
+            if showBiggerModal {
+                GuessFeedbackModal(imageName: "biggerNumber", onDismiss: { showBiggerModal = false; resetGame() })
+            }
         }
     }
 
     private func checkGuess() {
         if guessedNumber < targetNumber {
-            feedback = "Higher"
+            showBiggerModal = true // Number is smaller, tell player to guess bigger
         } else if guessedNumber > targetNumber {
-            feedback = "Lower"
+            showSmallerModal = true // Number is bigger, tell player to guess smaller
         } else {
-            feedback = "You guessed it!"
             isGameWon = true
         }
     }
@@ -89,6 +103,27 @@ struct GuessNumberScreen: View {
         targetNumber = Int.random(in: 1...999)
         feedback = ""
         isGameWon = false
+    }
+}
+
+// MARK: - Reusable Feedback Modal View
+
+struct GuessFeedbackModal: View {
+    let imageName: String
+    let onDismiss: () -> Void
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.6)
+                .edgesIgnoringSafeArea(.all)
+                .onTapGesture(perform: onDismiss) // Dismiss and reset on tap
+
+            Image(imageName)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 250, height: 200) // Adjust size as needed
+                .onTapGesture(perform: onDismiss) // Also dismiss and reset on tapping the image
+        }
     }
 }
 
